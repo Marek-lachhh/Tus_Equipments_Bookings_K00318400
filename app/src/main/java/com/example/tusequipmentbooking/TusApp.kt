@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -28,11 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tusequipmentbooking.ui.AuthViewModel
 import com.example.tusequipmentbooking.ui.TusViewModel
 import com.example.tusequipmentbooking.ui.screens.AddEquipmentScreen
 import com.example.tusequipmentbooking.ui.screens.EquipmentDetailsScreen
 import com.example.tusequipmentbooking.ui.screens.EquipmentScreen
 import com.example.tusequipmentbooking.ui.screens.HomeScreen
+import com.example.tusequipmentbooking.ui.screens.LoginScreen
 import com.example.tusequipmentbooking.ui.screens.MakeBookingScreen
 import com.example.tusequipmentbooking.ui.screens.MyBookingsScreen
 import com.example.tusequipmentbooking.ui.screens.NotFoundScreen
@@ -46,94 +49,117 @@ fun TusApp() {
     )
     val state by model.uiState.collectAsStateWithLifecycle()
 
+    // Firebase login state (Mary's AuthViewModel)
+    val authModel: AuthViewModel = viewModel()
+    val authState by authModel.uiState.collectAsStateWithLifecycle()
+
     var screen by rememberSaveable { mutableStateOf("home") }
     var backScreen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf(0) }
 
-    fun openDetails(id: Int) {
-        selectedId = id
-        backScreen = screen
-        screen = "details"
-    }
-
-    BackHandler(enabled = screen != "home") {
-        screen = when (screen) {
-            "details" -> backScreen
-            "book" -> "details"
-            else -> "home"
+    if (authState.uid == null) {
+        // Nobody signed in: only the Login screen is shown.
+        Surface(Modifier.fillMaxSize()) {
+            LoginScreen(
+                isBusy = authState.isBusy,
+                error = authState.error,
+                onLogin = authModel::login,
+                onCancel = { }
+            )
         }
-    }
+    } else {
+        fun openDetails(id: Int) {
+            selectedId = id
+            backScreen = screen
+            screen = "details"
+        }
 
-    Scaffold(
-        bottomBar = { BottomBar(current = screen, onSelect = { screen = it }) }
-    ) { padding ->
-        Box(Modifier.padding(padding)) {
-            if (state.isLoading) {
-                Column(Modifier.padding(16.dp)) {
-                    CircularProgressIndicator()
-                    Text("Loading equipment...")
-                }
-            } else if (state.loadError != null) {
-                Text(
-                    text = "Database error: ${state.loadError}",
-                    modifier = Modifier.padding(16.dp)
-                )
-            } else {
-                when (screen) {
-                    "home" -> HomeScreen(
-                        state = state,
-                        onEquipmentOpen = { id -> openDetails(id) },
-                        onBrowse = { screen = "equipment" }
-                    )
-                    "equipment" -> EquipmentScreen(
-                        state = state,
-                        onEquipmentOpen = { id -> openDetails(id) }
-                    )
-                    "details" -> {
-                        val equipment = state.findEquipment(selectedId)
-                        if (equipment == null) {
-                            NotFoundScreen(onBack = { screen = backScreen })
-                        } else {
-                            EquipmentDetailsScreen(
-                                equipment = equipment,
-                                categoryName = state.categoryName(equipment.categoryId),
-                                isBooked = state.isBooked(equipment.id),
-                                onBook = {
-                                    model.clearMessage()
-                                    screen = "book"
-                                },
-                                onBack = { screen = backScreen }
-                            )
-                        }
+        BackHandler(enabled = screen != "home") {
+            screen = when (screen) {
+                "details" -> backScreen
+                "book" -> "details"
+                else -> "home"
+            }
+        }
+
+        Scaffold(
+            bottomBar = { BottomBar(current = screen, onSelect = { screen = it }) }
+        ) { padding ->
+            Box(Modifier.padding(padding)) {
+                if (state.isLoading) {
+                    Column(Modifier.padding(16.dp)) {
+                        CircularProgressIndicator()
+                        Text("Loading equipment...")
                     }
-                    "book" -> {
-                        val equipment = state.findEquipment(selectedId)
-                        if (equipment == null) {
-                            NotFoundScreen(onBack = { screen = "equipment" })
-                        } else {
-                            MakeBookingScreen(
-                                equipment = equipment,
-                                categoryName = state.categoryName(equipment.categoryId),
-                                isBooked = state.isBooked(equipment.id),
-                                isSaving = state.isSaving,
-                                message = state.message,
-                                onSave = { days, purpose -> model.saveBooking(equipment, days, purpose) },
-                                onBack = { screen = "details" }
-                            )
+                } else if (state.loadError != null) {
+                    Text(
+                        text = "Database error: ${state.loadError}",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                } else {
+                    when (screen) {
+                        "home" -> HomeScreen(
+                            state = state,
+                            onEquipmentOpen = { id -> openDetails(id) },
+                            onBrowse = { screen = "equipment" }
+                        )
+                        "equipment" -> EquipmentScreen(
+                            state = state,
+                            onEquipmentOpen = { id -> openDetails(id) }
+                        )
+                        "details" -> {
+                            val equipment = state.findEquipment(selectedId)
+                            if (equipment == null) {
+                                NotFoundScreen(onBack = { screen = backScreen })
+                            } else {
+                                EquipmentDetailsScreen(
+                                    equipment = equipment,
+                                    categoryName = state.categoryName(equipment.categoryId),
+                                    isBooked = state.isBooked(equipment.id),
+                                    onBook = {
+                                        model.clearMessage()
+                                        screen = "book"
+                                    },
+                                    onBack = { screen = backScreen }
+                                )
+                            }
                         }
+                        "book" -> {
+                            val equipment = state.findEquipment(selectedId)
+                            if (equipment == null) {
+                                NotFoundScreen(onBack = { screen = "equipment" })
+                            } else {
+                                MakeBookingScreen(
+                                    equipment = equipment,
+                                    categoryName = state.categoryName(equipment.categoryId),
+                                    isBooked = state.isBooked(equipment.id),
+                                    isSaving = state.isSaving,
+                                    message = state.message,
+                                    onSave = { days, purpose -> model.saveBooking(equipment, days, purpose) },
+                                    onBack = { screen = "details" }
+                                )
+                            }
+                        }
+                        "bookings" -> MyBookingsScreen(
+                            state = state,
+                            onCancelBooking = { id -> model.cancelBooking(id) }
+                        )
+                        "add" -> AddEquipmentScreen(
+                            categories = state.categories,
+                            onSave = { name, categoryId, description ->
+                                model.addEquipment(name, categoryId, description)
+                                screen = "equipment"
+                            }
+                        )
+                        "profile" -> ProfileScreen(
+                            state = state,
+                            email = authState.email,
+                            onLogout = {
+                                authModel.logout()
+                                screen = "home"   // next user starts on Home
+                            }
+                        )
                     }
-                    "bookings" -> MyBookingsScreen(
-                        state = state,
-                        onCancelBooking = { id -> model.cancelBooking(id) }
-                    )
-                    "add" -> AddEquipmentScreen(
-                        categories = state.categories,
-                        onSave = { name, categoryId, description ->
-                            model.addEquipment(name, categoryId, description)
-                            screen = "equipment"
-                        }
-                    )
-                    "profile" -> ProfileScreen(state = state)
                 }
             }
         }

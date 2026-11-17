@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -14,16 +15,20 @@ import androidx.compose.ui.unit.dp
 import com.example.tusequipmentbooking.ui.TusUiState
 
 @Composable
-fun ProfileScreen(state: TusUiState) {
+fun ProfileScreen(
+    state: TusUiState,
+    email: String?,
+    onLogout: () -> Unit
+) {
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Profile", style = MaterialTheme.typography.headlineMedium)
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("TUS Equipment Booking", style = MaterialTheme.typography.titleLarge)
-                Text("Categories: ${state.categories.size}")
-                Text("Equipment items: ${state.equipment.size}")
+                Text("Signed in as", style = MaterialTheme.typography.labelLarge)
+                Text(email ?: "Unknown", style = MaterialTheme.typography.titleLarge)
                 Text("Active bookings: ${state.bookings.count { it.status == "Active" }}")
             }
         }
+        Button(onClick = onLogout) { Text("Log out") }
     }
 }
