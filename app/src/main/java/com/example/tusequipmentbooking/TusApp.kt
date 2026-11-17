@@ -1,20 +1,12 @@
 package com.example.tusequipmentbooking
 
 import android.app.Application
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,25 +29,32 @@ import androidx.navigation.navArgument
 import com.example.tusequipmentbooking.ui.AuthViewModel
 import com.example.tusequipmentbooking.ui.TusUiState
 import com.example.tusequipmentbooking.ui.TusViewModel
+import com.example.tusequipmentbooking.ui.components.TusMenuShell
 import com.example.tusequipmentbooking.ui.screens.*
 
 @Composable
-fun TusApp() {
+fun TusApp(
+    darkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit
+) {
     val application = LocalContext.current.applicationContext as Application
     val model: TusViewModel = viewModel(
         factory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
     )
     val state by model.uiState.collectAsStateWithLifecycle()
 
+    // Firebase login state (Mary's AuthViewModel)
     val authModel: AuthViewModel = viewModel()
     val authState by authModel.uiState.collectAsStateWithLifecycle()
 
+    // Tell the booking ViewModel who is signed in.
     LaunchedEffect(authState.uid) { model.setUser(authState.uid) }
 
     var showRegister by rememberSaveable { mutableStateOf(false) }
     val uid = authState.uid
 
     if (uid == null) {
+        // Nobody signed in: show Login or Register only.
         Surface(Modifier.fillMaxSize()) {
             if (showRegister) {
                 RegisterScreen(
@@ -81,12 +79,15 @@ fun TusApp() {
             }
         }
     } else {
-
+        // key(uid): each user gets a brand new NavHost, so after logout
+        // Back can never return to the previous user's screens.
         key(uid) {
             MainApp(
                 state = state,
                 model = model,
                 email = authState.email,
+                darkTheme = darkTheme,
+                onDarkThemeChange = onDarkThemeChange,
                 onLogout = { authModel.logout() }
             )
         }
@@ -98,13 +99,15 @@ private fun MainApp(
     state: TusUiState,
     model: TusViewModel,
     email: String?,
+    darkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    // Opens a bottom-bar screen without piling up copies on the back stack.
+    // Opens a top-level screen without piling up copies on the back stack.
     fun openTab(route: String) {
         model.clearMessage()
         navController.navigate(route) {
@@ -113,8 +116,14 @@ private fun MainApp(
         }
     }
 
-    Scaffold(
-        bottomBar = { BottomBar(current = currentRoute, onSelect = { openTab(it) }) }
+    TusMenuShell(
+        selectedRoute = currentRoute,
+        enabled = !state.isLoading && state.loadError == null,
+        onHome = { openTab("home") },
+        onEquipment = { openTab("equipment") },
+        onBookings = { openTab("bookings") },
+        onAdd = { openTab("add") },
+        onSettings = { openTab("settings") }
     ) { padding ->
         if (state.isLoading) {
             Column(Modifier.padding(padding).padding(16.dp)) {
@@ -199,47 +208,13 @@ private fun MainApp(
                         }
                     )
                 }
-                composable("profile") {
-                    ProfileScreen(
+                composable("settings") {
+                    SettingsScreen(
                         state = state,
                         email = email,
+                        darkTheme = darkTheme,
+                        onDarkThemeChange = onDarkThemeChange,
                         onLogout = onLogout
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun BottomBar(current: String?, onSelect: (String) -> Unit) {
-    val tabs = listOf(
-        "home" to "Home",
-        "equipment" to "Equipment",
-        "bookings" to "Bookings",
-        "add" to "Add",
-        "profile" to "Profile"
-    )
-
-    Surface(color = MaterialTheme.colorScheme.primaryContainer) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            tabs.forEach { (route, label) ->
-                TextButton(
-                    onClick = { onSelect(route) },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp)
-                ) {
-                    Text(
-                        label,
-                        maxLines = 1,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (current == route) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
