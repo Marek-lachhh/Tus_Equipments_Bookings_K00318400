@@ -30,7 +30,8 @@ private data class MenuDestination(
     val label: String,
     val icon: Int,
     val inBottomBar: Boolean,
-    val onClick: () -> Unit
+    val onClick: () -> Unit,
+    val shortLabel: String = label
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,7 +55,7 @@ fun TusMenuShell(
         add(MenuDestination("equipment", "Equipment", R.drawable.ic_equipment, true, onEquipment))
         add(MenuDestination("bookings", "My Bookings", R.drawable.ic_bookings, true, onBookings))
         if (isAdmin) {
-            add(MenuDestination("add", "Add equipment (admin)", R.drawable.ic_add, false, onAdd))
+            add(MenuDestination("add", "Add equipment", R.drawable.ic_add, true, onAdd, shortLabel = "Add"))
         }
         add(MenuDestination("settings", "Settings", R.drawable.ic_settings, true, onSettings))
     }
@@ -112,7 +113,7 @@ fun TusMenuShell(
                                 selected = selectedRoute == item.route,
                                 onClick = item.onClick,
                                 icon = { Icon(painterResource(item.icon), contentDescription = null) },
-                                label = { Text(item.label, maxLines = 1) }
+                                label = { Text(item.shortLabel, maxLines = 1) }
                             )
                         }
                     }
