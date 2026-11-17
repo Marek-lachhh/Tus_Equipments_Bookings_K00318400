@@ -19,16 +19,16 @@ import kotlinx.coroutines.launch
 
 data class TusUiState(
     val equipment: List<Equipment> = emptyList(),
-    val categories: List<Category> = emptyList(),
-    val bookings: List<Booking> = emptyList(),        // signed-in user's bookings only
-    val bookedEquipmentIds: Set<Int> = emptySet(),    // items booked by anyone
+    val categoryNames: Map<Int, String> = emptyMap(),  // categoryId -> name (from the JOIN query)
+    val categories: List<Category> = emptyList(),      // for the Add equipment form
+    val bookings: List<Booking> = emptyList(),
+    val bookedEquipmentIds: Set<Int> = emptySet(),
     val isLoading: Boolean = true,
     val loadError: String? = null,
     val isSaving: Boolean = false,
     val message: String? = null
 ) {
-    fun categoryName(categoryId: Int): String =
-        categories.firstOrNull { it.id == categoryId }?.name ?: "Uncategorised"
+    fun categoryName(categoryId: Int): String = categoryNames[categoryId] ?: "Uncategorised"
 
     fun findEquipment(id: Int?): Equipment? = equipment.firstOrNull { it.id == id }
 
@@ -55,13 +55,14 @@ class TusViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 repository.seedIfEmpty()
                 combine(
-                    repository.equipment,
+                    repository.equipmentWithCategory,
                     repository.categories,
                     userBookings,
                     repository.bookedEquipmentIds
-                ) { equipment, categories, bookings, bookedIds ->
+                ) { rows, categories, bookings, bookedIds ->
                     TusUiState(
-                        equipment = equipment,
+                        equipment = rows.map { it.equipment },
+                        categoryNames = rows.associate { it.equipment.categoryId to it.categoryName },
                         categories = categories,
                         bookings = bookings,
                         bookedEquipmentIds = bookedIds.toSet()
@@ -70,6 +71,7 @@ class TusViewModel(application: Application) : AndroidViewModel(application) {
                     mutableUiState.update {
                         it.copy(
                             equipment = data.equipment,
+                            categoryNames = data.categoryNames,
                             categories = data.categories,
                             bookings = data.bookings,
                             bookedEquipmentIds = data.bookedEquipmentIds,
@@ -101,8 +103,8 @@ class TusViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveBooking(equipment: Equipment, days: Int, purpose: String) {
-        val uid = userUid.value ?: return               // must be signed in
-        if (mutableUiState.value.isSaving) return       // stops double taps
+        val uid = userUid.value ?: return
+        if (mutableUiState.value.isSaving) return
         mutableUiState.update { it.copy(isSaving = true, message = null) }
 
         viewModelScope.launch {

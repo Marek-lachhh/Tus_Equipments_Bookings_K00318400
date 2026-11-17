@@ -4,13 +4,14 @@ import androidx.room.withTransaction
 import com.example.tusequipmentbooking.data.sampleCategories
 import com.example.tusequipmentbooking.data.sampleEquipment
 import com.example.tusequipmentbooking.model.Booking
+import com.example.tusequipmentbooking.model.BookingStatus
 import com.example.tusequipmentbooking.model.Equipment
 import kotlinx.coroutines.flow.Flow
 
 class EquipmentRepository(private val database: EquipmentDatabase) {
     private val dao = database.equipmentDao()
 
-    val equipment = dao.observeEquipment()
+    val equipmentWithCategory = dao.observeEquipmentWithCategory()
     val categories = dao.observeCategories()
     val bookedEquipmentIds = dao.observeBookedEquipmentIds()
 
@@ -29,9 +30,10 @@ class EquipmentRepository(private val database: EquipmentDatabase) {
         dao.insertEquipment(Equipment(0, categoryId, name.trim(), description.trim()))
     }
 
+    // Returns false if the item already has an active booking (by any user).
     suspend fun saveBooking(equipmentId: Int, userUid: String, days: Int, purpose: String): Boolean {
         if (dao.activeBookingCount(equipmentId) > 0) return false
-        dao.insertBooking(Booking(0, equipmentId, userUid, days, purpose.trim(), "Active"))
+        dao.insertBooking(Booking(0, equipmentId, userUid, days, purpose.trim(), BookingStatus.Active))
         return true
     }
 

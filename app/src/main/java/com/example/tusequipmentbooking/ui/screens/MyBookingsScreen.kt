@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.tusequipmentbooking.model.Booking
+import com.example.tusequipmentbooking.model.BookingStatus
 import com.example.tusequipmentbooking.ui.TusUiState
 
 @Composable
@@ -52,7 +53,7 @@ fun MyBookingsScreen(
                     Text("Days: ${booking.days}")
                     Text("Purpose: ${booking.purpose}")
                     Text("Status: ${booking.status}")
-                    if (booking.status == "Active") {
+                    if (booking.status == BookingStatus.Active) {
                         OutlinedButton(onClick = { bookingToCancel = booking }) {
                             Text("Cancel booking")
                         }

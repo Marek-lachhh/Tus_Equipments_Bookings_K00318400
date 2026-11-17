@@ -5,6 +5,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+enum class BookingStatus { Active, Cancelled }
+
 @Entity(
     tableName = "bookings",
     foreignKeys = [ForeignKey(
@@ -20,5 +22,5 @@ data class Booking(
     val userUid: String,
     val days: Int,
     val purpose: String,
-    val status: String
+    val status: BookingStatus
 )

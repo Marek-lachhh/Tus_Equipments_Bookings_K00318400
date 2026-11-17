@@ -6,6 +6,7 @@ import androidx.room.Query
 import com.example.tusequipmentbooking.model.Booking
 import com.example.tusequipmentbooking.model.Category
 import com.example.tusequipmentbooking.model.Equipment
+import com.example.tusequipmentbooking.model.EquipmentWithCategory
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -13,8 +14,15 @@ interface EquipmentDao {
     @Query("SELECT * FROM categories ORDER BY id")
     fun observeCategories(): Flow<List<Category>>
 
-    @Query("SELECT * FROM equipment ORDER BY id")
-    fun observeEquipment(): Flow<List<Equipment>>
+    @Query(
+        """
+        SELECT equipment.*, categories.name AS categoryName
+        FROM equipment
+        JOIN categories ON categories.id = equipment.categoryId
+        ORDER BY equipment.id
+        """
+    )
+    fun observeEquipmentWithCategory(): Flow<List<EquipmentWithCategory>>
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun categoryCount(): Int
@@ -31,6 +39,7 @@ interface EquipmentDao {
     @Insert
     suspend fun insertEquipment(equipment: Equipment): Long
 
+    // Bookings
 
     @Query("SELECT * FROM bookings WHERE userUid = :userUid ORDER BY id DESC")
     fun observeBookingsForUser(userUid: String): Flow<List<Booking>>

@@ -7,7 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.tusequipmentbooking.ui.TusUiState
-
+import com.example.tusequipmentbooking.model.BookingStatus
 @Composable
 fun SettingsScreen(
     state: TusUiState,
@@ -26,7 +26,7 @@ fun SettingsScreen(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Signed in as", style = MaterialTheme.typography.labelLarge)
                 Text(email ?: "Unknown", style = MaterialTheme.typography.titleLarge)
-                Text("Active bookings: ${state.bookings.count { it.status == "Active" }}")
+                Text("Active bookings: ${state.bookings.count { it.status == BookingStatus.Active }}")
                 Button(onClick = onLogout) { Text("Log out") }
             }
         }
