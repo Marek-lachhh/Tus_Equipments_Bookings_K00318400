@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import com.example.tusequipmentbooking.R
 import kotlinx.coroutines.launch
 
-// One destination used by the drawer and (if inBottomBar) the bottom bar.
 private data class MenuDestination(
     val route: String,
     val label: String,
@@ -39,6 +38,7 @@ private data class MenuDestination(
 fun TusMenuShell(
     selectedRoute: String?,
     enabled: Boolean,
+    isAdmin: Boolean,
     onHome: () -> Unit,
     onEquipment: () -> Unit,
     onBookings: () -> Unit,
@@ -49,13 +49,15 @@ fun TusMenuShell(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val destinations = listOf(
-        MenuDestination("home", "Home", R.drawable.ic_home, true, onHome),
-        MenuDestination("equipment", "Equipment", R.drawable.ic_equipment, true, onEquipment),
-        MenuDestination("bookings", "My Bookings", R.drawable.ic_bookings, true, onBookings),
-        MenuDestination("add", "Add equipment", R.drawable.ic_add, false, onAdd),
-        MenuDestination("settings", "Settings", R.drawable.ic_settings, true, onSettings)
-    )
+    val destinations = buildList {
+        add(MenuDestination("home", "Home", R.drawable.ic_home, true, onHome))
+        add(MenuDestination("equipment", "Equipment", R.drawable.ic_equipment, true, onEquipment))
+        add(MenuDestination("bookings", "My Bookings", R.drawable.ic_bookings, true, onBookings))
+        if (isAdmin) {
+            add(MenuDestination("add", "Add equipment (admin)", R.drawable.ic_add, false, onAdd))
+        }
+        add(MenuDestination("settings", "Settings", R.drawable.ic_settings, true, onSettings))
+    }
 
     val showBottomBar = enabled && destinations.any { it.route == selectedRoute }
 
@@ -76,8 +78,8 @@ fun TusMenuShell(
                         selected = selectedRoute == item.route,
                         onClick = {
                             scope.launch {
-                                drawerState.close()   // close first
-                                item.onClick()        // then navigate
+                                drawerState.close()
+                                item.onClick()
                             }
                         },
                         modifier = Modifier.padding(horizontal = 12.dp)

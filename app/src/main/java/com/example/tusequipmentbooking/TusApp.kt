@@ -1,9 +1,11 @@
 package com.example.tusequipmentbooking
 
 import android.app.Application
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,18 +45,15 @@ fun TusApp(
     )
     val state by model.uiState.collectAsStateWithLifecycle()
 
-    // Firebase login state (Mary's AuthViewModel)
     val authModel: AuthViewModel = viewModel()
     val authState by authModel.uiState.collectAsStateWithLifecycle()
 
-    // Tell the booking ViewModel who is signed in.
     LaunchedEffect(authState.uid) { model.setUser(authState.uid) }
 
     var showRegister by rememberSaveable { mutableStateOf(false) }
     val uid = authState.uid
 
     if (uid == null) {
-        // Nobody signed in: show Login or Register only.
         Surface(Modifier.fillMaxSize()) {
             if (showRegister) {
                 RegisterScreen(
@@ -79,13 +78,12 @@ fun TusApp(
             }
         }
     } else {
-        // key(uid): each user gets a brand new NavHost, so after logout
-        // Back can never return to the previous user's screens.
         key(uid) {
             MainApp(
                 state = state,
                 model = model,
                 email = authState.email,
+                isAdmin = authState.roleReady && authState.isAdmin,
                 darkTheme = darkTheme,
                 onDarkThemeChange = onDarkThemeChange,
                 onLogout = { authModel.logout() }
@@ -99,6 +97,7 @@ private fun MainApp(
     state: TusUiState,
     model: TusViewModel,
     email: String?,
+    isAdmin: Boolean,
     darkTheme: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
     onLogout: () -> Unit
@@ -107,7 +106,6 @@ private fun MainApp(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    // Opens a top-level screen without piling up copies on the back stack.
     fun openTab(route: String) {
         model.clearMessage()
         navController.navigate(route) {
@@ -119,6 +117,7 @@ private fun MainApp(
     TusMenuShell(
         selectedRoute = currentRoute,
         enabled = !state.isLoading && state.loadError == null,
+        isAdmin = isAdmin,
         onHome = { openTab("home") },
         onEquipment = { openTab("equipment") },
         onBookings = { openTab("bookings") },
@@ -200,18 +199,29 @@ private fun MainApp(
                     )
                 }
                 composable("add") {
-                    AddEquipmentScreen(
-                        categories = state.categories,
-                        onSave = { name, categoryId, description ->
-                            model.addEquipment(name, categoryId, description)
-                            openTab("equipment")
+                    if (isAdmin) {
+                        AddEquipmentScreen(
+                            categories = state.categories,
+                            onSave = { name, categoryId, description ->
+                                model.addEquipment(name, categoryId, description)
+                                openTab("equipment")
+                            }
+                        )
+                    } else {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("Only admins can add equipment.")
+                            Button(onClick = { navController.popBackStack() }) { Text("Back") }
                         }
-                    )
+                    }
                 }
                 composable("settings") {
                     SettingsScreen(
                         state = state,
                         email = email,
+                        isAdmin = isAdmin,
                         darkTheme = darkTheme,
                         onDarkThemeChange = onDarkThemeChange,
                         onLogout = onLogout

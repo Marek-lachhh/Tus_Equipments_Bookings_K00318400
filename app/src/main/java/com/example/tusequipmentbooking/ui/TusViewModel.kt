@@ -8,6 +8,10 @@ import com.example.tusequipmentbooking.data.local.EquipmentRepository
 import com.example.tusequipmentbooking.model.Booking
 import com.example.tusequipmentbooking.model.Category
 import com.example.tusequipmentbooking.model.Equipment
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,11 +20,14 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 data class TusUiState(
     val equipment: List<Equipment> = emptyList(),
-    val categoryNames: Map<Int, String> = emptyMap(),  // categoryId -> name (from the JOIN query)
-    val categories: List<Category> = emptyList(),      // for the Add equipment form
+    val categoryNames: Map<Int, String> = emptyMap(),
+    val categories: List<Category> = emptyList(),
     val bookings: List<Booking> = emptyList(),
     val bookedEquipmentIds: Set<Int> = emptySet(),
     val isLoading: Boolean = true,
@@ -92,10 +99,29 @@ class TusViewModel(application: Application) : AndroidViewModel(application) {
         mutableUiState.update { it.copy(message = null) }
     }
 
+    private suspend fun requireAdmin() {
+        val user = FirebaseAuth.getInstance().currentUser
+            ?: error("Admin sign in required")
+        val document = suspendCancellableCoroutine<DocumentSnapshot> { continuation ->
+            FirebaseFirestore.getInstance().collection("users")
+                .document(user.uid).get(Source.SERVER)
+                .addOnSuccessListener {
+                    if (continuation.isActive) continuation.resume(it)
+                }
+                .addOnFailureListener {
+                    if (continuation.isActive) continuation.resumeWithException(it)
+                }
+        }
+        check(FirebaseAuth.getInstance().currentUser?.uid == user.uid &&
+                document.getString("role") == "admin") { "Admin access required" }
+    }
+
     fun addEquipment(name: String, categoryId: Int, description: String) {
         viewModelScope.launch {
             try {
+                requireAdmin()
                 repository.addEquipment(name, categoryId, description)
+                mutableUiState.update { it.copy(message = "Equipment added: ${name.trim()}") }
             } catch (error: Exception) {
                 mutableUiState.update { it.copy(message = error.message ?: "Unable to add equipment") }
             }

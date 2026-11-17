@@ -26,7 +26,7 @@ fun HomeScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("TUS Equipment Booking", style = MaterialTheme.typography.headlineMedium)
-                Text("Borrow computers, chargers, cables and tablets for your college work. You can also add new equipment to the catalogue.")
+                Text("Borrow computers, chargers, cables and tablets for your college work. Admins can also add new equipment to the catalogue.")
                 Button(onClick = onBrowse) { Text("Browse all equipment") }
                 Text("Featured equipment", style = MaterialTheme.typography.titleMedium)
             }
@@ -51,6 +51,7 @@ fun EquipmentScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item { Text("All equipment", style = MaterialTheme.typography.headlineMedium) }
+        state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
         items(state.equipment, key = { it.id }) { item ->
             EquipmentCard(
                 equipment = item,

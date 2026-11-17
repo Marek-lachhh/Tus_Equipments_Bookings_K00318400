@@ -6,12 +6,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.tusequipmentbooking.ui.TusUiState
 import com.example.tusequipmentbooking.model.BookingStatus
+import com.example.tusequipmentbooking.ui.TusUiState
+
 @Composable
 fun SettingsScreen(
     state: TusUiState,
     email: String?,
+    isAdmin: Boolean,
     darkTheme: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
     onLogout: () -> Unit
@@ -26,6 +28,7 @@ fun SettingsScreen(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Signed in as", style = MaterialTheme.typography.labelLarge)
                 Text(email ?: "Unknown", style = MaterialTheme.typography.titleLarge)
+                Text("Role: ${if (isAdmin) "Admin" else "User"}")
                 Text("Active bookings: ${state.bookings.count { it.status == BookingStatus.Active }}")
                 Button(onClick = onLogout) { Text("Log out") }
             }
