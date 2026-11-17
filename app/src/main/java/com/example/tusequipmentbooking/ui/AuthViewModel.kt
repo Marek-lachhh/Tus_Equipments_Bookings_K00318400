@@ -7,9 +7,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
+private val ADMIN_EMAILS = setOf(
+    "admin@tus.ie"
+)
+
+private fun isAdminEmail(email: String?): Boolean =
+    email != null && email.lowercase() in ADMIN_EMAILS
+
 data class AuthUiState(
     val uid: String? = null,
     val email: String? = null,
+    val isAdmin: Boolean = false,
     val isBusy: Boolean = false,
     val error: String? = null
 )
@@ -18,13 +26,17 @@ class AuthViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val mutableState = MutableStateFlow(AuthUiState(
         uid = auth.currentUser?.uid,
-        email = auth.currentUser?.email
+        email = auth.currentUser?.email,
+        isAdmin = isAdminEmail(auth.currentUser?.email)
     ))
     val uiState = mutableState.asStateFlow()
+
     private val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        val user = firebaseAuth.currentUser
         mutableState.update { it.copy(
-            uid = firebaseAuth.currentUser?.uid,
-            email = firebaseAuth.currentUser?.email
+            uid = user?.uid,
+            email = user?.email,
+            isAdmin = isAdminEmail(user?.email)
         ) }
     }
     init { auth.addAuthStateListener(listener) }
