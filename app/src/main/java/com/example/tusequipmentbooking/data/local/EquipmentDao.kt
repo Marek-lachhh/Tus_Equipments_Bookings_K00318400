@@ -31,10 +31,12 @@ interface EquipmentDao {
     @Insert
     suspend fun insertEquipment(equipment: Equipment): Long
 
-    // Bookings
 
-    @Query("SELECT * FROM bookings ORDER BY id DESC")
-    fun observeBookings(): Flow<List<Booking>>
+    @Query("SELECT * FROM bookings WHERE userUid = :userUid ORDER BY id DESC")
+    fun observeBookingsForUser(userUid: String): Flow<List<Booking>>
+
+    @Query("SELECT DISTINCT equipmentId FROM bookings WHERE status = 'Active'")
+    fun observeBookedEquipmentIds(): Flow<List<Int>>
 
     @Insert
     suspend fun insertBooking(booking: Booking)
@@ -42,6 +44,6 @@ interface EquipmentDao {
     @Query("SELECT COUNT(*) FROM bookings WHERE equipmentId = :equipmentId AND status = 'Active'")
     suspend fun activeBookingCount(equipmentId: Int): Int
 
-    @Query("UPDATE bookings SET status = 'Cancelled' WHERE id = :bookingId")
-    suspend fun cancelBooking(bookingId: Int)
+    @Query("UPDATE bookings SET status = 'Cancelled' WHERE id = :bookingId AND userUid = :userUid")
+    suspend fun cancelBooking(bookingId: Int, userUid: String)
 }

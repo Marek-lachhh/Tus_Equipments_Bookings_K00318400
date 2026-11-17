@@ -5,13 +5,16 @@ import com.example.tusequipmentbooking.data.sampleCategories
 import com.example.tusequipmentbooking.data.sampleEquipment
 import com.example.tusequipmentbooking.model.Booking
 import com.example.tusequipmentbooking.model.Equipment
+import kotlinx.coroutines.flow.Flow
 
 class EquipmentRepository(private val database: EquipmentDatabase) {
     private val dao = database.equipmentDao()
 
     val equipment = dao.observeEquipment()
     val categories = dao.observeCategories()
-    val bookings = dao.observeBookings()
+    val bookedEquipmentIds = dao.observeBookedEquipmentIds()
+
+    fun bookingsFor(userUid: String): Flow<List<Booking>> = dao.observeBookingsForUser(userUid)
 
     suspend fun seedIfEmpty() {
         database.withTransaction {
@@ -26,14 +29,13 @@ class EquipmentRepository(private val database: EquipmentDatabase) {
         dao.insertEquipment(Equipment(0, categoryId, name.trim(), description.trim()))
     }
 
-
-    suspend fun saveBooking(equipmentId: Int, days: Int, purpose: String): Boolean {
+    suspend fun saveBooking(equipmentId: Int, userUid: String, days: Int, purpose: String): Boolean {
         if (dao.activeBookingCount(equipmentId) > 0) return false
-        dao.insertBooking(Booking(0, equipmentId, days, purpose.trim(), "Active"))
+        dao.insertBooking(Booking(0, equipmentId, userUid, days, purpose.trim(), "Active"))
         return true
     }
 
-    suspend fun cancelBooking(bookingId: Int) {
-        dao.cancelBooking(bookingId)
+    suspend fun cancelBooking(bookingId: Int, userUid: String) {
+        dao.cancelBooking(bookingId, userUid)
     }
 }

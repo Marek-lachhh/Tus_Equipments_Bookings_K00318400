@@ -38,13 +38,16 @@ fun MyBookingsScreen(
         state.message?.let { item { Text(it) } }
 
         if (state.bookings.isEmpty()) {
-            item { Text("You have no bookings yet.") }
+            item { Text("You have no bookings yet. Open Equipment, choose an item and tap Book this item.") }
         }
 
         items(state.bookings, key = { it.id }) { booking ->
-            val name = state.findEquipment(booking.equipmentId)?.name ?: "Unknown item"
+            val equipment = state.findEquipment(booking.equipmentId)
+            val name = equipment?.name ?: "Unknown item"
+            val category = equipment?.let { state.categoryName(it.categoryId) } ?: ""
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(category.uppercase(), style = MaterialTheme.typography.labelMedium)
                     Text(name, style = MaterialTheme.typography.titleLarge)
                     Text("Days: ${booking.days}")
                     Text("Purpose: ${booking.purpose}")
@@ -59,7 +62,6 @@ fun MyBookingsScreen(
         }
     }
 
-    // Ask before cancelling.
     bookingToCancel?.let { booking ->
         AlertDialog(
             onDismissRequest = { bookingToCancel = null },

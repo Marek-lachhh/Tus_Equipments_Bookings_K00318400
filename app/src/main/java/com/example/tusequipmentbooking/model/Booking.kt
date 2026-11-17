@@ -12,12 +12,13 @@ import androidx.room.PrimaryKey
         parentColumns = ["id"],
         childColumns = ["equipmentId"]
     )],
-    indices = [Index(value = ["equipmentId"])]
+    indices = [Index(value = ["equipmentId"]), Index(value = ["userUid"])]
 )
 data class Booking(
     @PrimaryKey(autoGenerate = true) val id: Int,
     val equipmentId: Int,
+    val userUid: String,
     val days: Int,
     val purpose: String,
-    val status: String // "Active" or "Cancelled"
+    val status: String
 )

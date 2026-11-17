@@ -8,16 +8,20 @@ import com.example.tusequipmentbooking.data.local.EquipmentRepository
 import com.example.tusequipmentbooking.model.Booking
 import com.example.tusequipmentbooking.model.Category
 import com.example.tusequipmentbooking.model.Equipment
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class TusUiState(
     val equipment: List<Equipment> = emptyList(),
     val categories: List<Category> = emptyList(),
-    val bookings: List<Booking> = emptyList(),
+    val bookings: List<Booking> = emptyList(),        // signed-in user's bookings only
+    val bookedEquipmentIds: Set<Int> = emptySet(),    // items booked by anyone
     val isLoading: Boolean = true,
     val loadError: String? = null,
     val isSaving: Boolean = false,
@@ -28,14 +32,20 @@ data class TusUiState(
 
     fun findEquipment(id: Int?): Equipment? = equipment.firstOrNull { it.id == id }
 
-    fun isBooked(equipmentId: Int): Boolean =
-        bookings.any { it.equipmentId == equipmentId && it.status == "Active" }
+    fun isBooked(equipmentId: Int): Boolean = equipmentId in bookedEquipmentIds
 }
 
 class TusViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = EquipmentRepository(
         EquipmentDatabase.getInstance(application)
     )
+
+    private val userUid = MutableStateFlow<String?>(null)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val userBookings = userUid.flatMapLatest { uid ->
+        if (uid == null) flowOf(emptyList()) else repository.bookingsFor(uid)
+    }
 
     private val mutableUiState = MutableStateFlow(TusUiState())
     val uiState = mutableUiState.asStateFlow()
@@ -47,15 +57,22 @@ class TusViewModel(application: Application) : AndroidViewModel(application) {
                 combine(
                     repository.equipment,
                     repository.categories,
-                    repository.bookings
-                ) { equipment, categories, bookings ->
-                    Triple(equipment, categories, bookings)
-                }.collect { (equipment, categories, bookings) ->
+                    userBookings,
+                    repository.bookedEquipmentIds
+                ) { equipment, categories, bookings, bookedIds ->
+                    TusUiState(
+                        equipment = equipment,
+                        categories = categories,
+                        bookings = bookings,
+                        bookedEquipmentIds = bookedIds.toSet()
+                    )
+                }.collect { data ->
                     mutableUiState.update {
                         it.copy(
-                            equipment = equipment,
-                            categories = categories,
-                            bookings = bookings,
+                            equipment = data.equipment,
+                            categories = data.categories,
+                            bookings = data.bookings,
+                            bookedEquipmentIds = data.bookedEquipmentIds,
                             isLoading = false
                         )
                     }
@@ -68,31 +85,52 @@ class TusViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setUser(uid: String?) {
+        userUid.value = uid
+        mutableUiState.update { it.copy(message = null) }
+    }
+
     fun addEquipment(name: String, categoryId: Int, description: String) {
         viewModelScope.launch {
-            repository.addEquipment(name, categoryId, description)
+            try {
+                repository.addEquipment(name, categoryId, description)
+            } catch (error: Exception) {
+                mutableUiState.update { it.copy(message = error.message ?: "Unable to add equipment") }
+            }
         }
     }
 
     fun saveBooking(equipment: Equipment, days: Int, purpose: String) {
-        if (mutableUiState.value.isSaving) return // stops double taps
+        val uid = userUid.value ?: return               // must be signed in
+        if (mutableUiState.value.isSaving) return       // stops double taps
         mutableUiState.update { it.copy(isSaving = true, message = null) }
 
         viewModelScope.launch {
-            val saved = repository.saveBooking(equipment.id, days, purpose)
-            val text = if (saved) {
-                "Booking saved: ${equipment.name} for $days day(s). Purpose: ${purpose.trim()}"
-            } else {
-                "This item is already booked."
+            try {
+                val saved = repository.saveBooking(equipment.id, uid, days, purpose)
+                val text = if (saved) {
+                    "Booking saved: ${equipment.name} for $days day(s). Purpose: ${purpose.trim()}"
+                } else {
+                    "This item is already booked."
+                }
+                mutableUiState.update { it.copy(message = text) }
+            } catch (error: Exception) {
+                mutableUiState.update { it.copy(message = error.message ?: "Unable to save booking") }
+            } finally {
+                mutableUiState.update { it.copy(isSaving = false) }
             }
-            mutableUiState.update { it.copy(isSaving = false, message = text) }
         }
     }
 
     fun cancelBooking(bookingId: Int) {
+        val uid = userUid.value ?: return
         viewModelScope.launch {
-            repository.cancelBooking(bookingId)
-            mutableUiState.update { it.copy(message = "Booking cancelled") }
+            try {
+                repository.cancelBooking(bookingId, uid)
+                mutableUiState.update { it.copy(message = "Booking cancelled") }
+            } catch (error: Exception) {
+                mutableUiState.update { it.copy(message = error.message ?: "Unable to cancel booking") }
+            }
         }
     }
 

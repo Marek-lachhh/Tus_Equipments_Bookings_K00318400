@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -53,6 +54,9 @@ fun TusApp() {
     // Firebase login state (Mary's AuthViewModel)
     val authModel: AuthViewModel = viewModel()
     val authState by authModel.uiState.collectAsStateWithLifecycle()
+
+    // Tell the booking ViewModel who is signed in.
+    LaunchedEffect(authState.uid) { model.setUser(authState.uid) }
 
     var screen by rememberSaveable { mutableStateOf("home") }
     var backScreen by rememberSaveable { mutableStateOf("home") }

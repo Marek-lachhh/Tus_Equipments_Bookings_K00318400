@@ -10,7 +10,7 @@ import com.example.tusequipmentbooking.model.Equipment
 
 @Database(
     entities = [Category::class, Equipment::class, Booking::class],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class EquipmentDatabase : RoomDatabase() {
