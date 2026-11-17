@@ -1,9 +1,7 @@
 package com.example.tusequipmentbooking
 
 import android.app.Application
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +18,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -30,18 +29,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.tusequipmentbooking.ui.AuthViewModel
+import com.example.tusequipmentbooking.ui.TusUiState
 import com.example.tusequipmentbooking.ui.TusViewModel
-import com.example.tusequipmentbooking.ui.screens.AddEquipmentScreen
-import com.example.tusequipmentbooking.ui.screens.EquipmentDetailsScreen
-import com.example.tusequipmentbooking.ui.screens.EquipmentScreen
-import com.example.tusequipmentbooking.ui.screens.HomeScreen
-import com.example.tusequipmentbooking.ui.screens.LoginScreen
-import com.example.tusequipmentbooking.ui.screens.MakeBookingScreen
-import com.example.tusequipmentbooking.ui.screens.MyBookingsScreen
-import com.example.tusequipmentbooking.ui.screens.NotFoundScreen
-import com.example.tusequipmentbooking.ui.screens.ProfileScreen
-import com.example.tusequipmentbooking.ui.screens.RegisterScreen
+import com.example.tusequipmentbooking.ui.screens.*
 
 @Composable
 fun TusApp() {
@@ -51,20 +48,15 @@ fun TusApp() {
     )
     val state by model.uiState.collectAsStateWithLifecycle()
 
-    // Firebase login state (Mary's AuthViewModel)
     val authModel: AuthViewModel = viewModel()
     val authState by authModel.uiState.collectAsStateWithLifecycle()
 
-    // Tell the booking ViewModel who is signed in.
     LaunchedEffect(authState.uid) { model.setUser(authState.uid) }
 
-    var screen by rememberSaveable { mutableStateOf("home") }
-    var backScreen by rememberSaveable { mutableStateOf("home") }
-    var selectedId by rememberSaveable { mutableStateOf(0) }
     var showRegister by rememberSaveable { mutableStateOf(false) }
+    val uid = authState.uid
 
-    if (authState.uid == null) {
-        // Nobody signed in: show Login or Register only.
+    if (uid == null) {
         Surface(Modifier.fillMaxSize()) {
             if (showRegister) {
                 RegisterScreen(
@@ -89,98 +81,130 @@ fun TusApp() {
             }
         }
     } else {
-        fun openDetails(id: Int) {
-            selectedId = id
-            backScreen = screen
-            screen = "details"
-        }
 
-        BackHandler(enabled = screen != "home") {
-            screen = when (screen) {
-                "details" -> backScreen
-                "book" -> "details"
-                else -> "home"
+        key(uid) {
+            MainApp(
+                state = state,
+                model = model,
+                email = authState.email,
+                onLogout = { authModel.logout() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MainApp(
+    state: TusUiState,
+    model: TusViewModel,
+    email: String?,
+    onLogout: () -> Unit
+) {
+    val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+
+    // Opens a bottom-bar screen without piling up copies on the back stack.
+    fun openTab(route: String) {
+        model.clearMessage()
+        navController.navigate(route) {
+            popUpTo("home") { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
+    Scaffold(
+        bottomBar = { BottomBar(current = currentRoute, onSelect = { openTab(it) }) }
+    ) { padding ->
+        if (state.isLoading) {
+            Column(Modifier.padding(padding).padding(16.dp)) {
+                CircularProgressIndicator()
+                Text("Loading equipment...")
             }
-        }
-
-        Scaffold(
-            bottomBar = { BottomBar(current = screen, onSelect = { screen = it }) }
-        ) { padding ->
-            Box(Modifier.padding(padding)) {
-                if (state.isLoading) {
-                    Column(Modifier.padding(16.dp)) {
-                        CircularProgressIndicator()
-                        Text("Loading equipment...")
-                    }
-                } else if (state.loadError != null) {
-                    Text(
-                        text = "Database error: ${state.loadError}",
-                        modifier = Modifier.padding(16.dp)
+        } else if (state.loadError != null) {
+            Text(
+                text = "Database error: ${state.loadError}",
+                modifier = Modifier.padding(padding).padding(16.dp)
+            )
+        } else {
+            NavHost(
+                navController = navController,
+                startDestination = "home",
+                modifier = Modifier.padding(padding)
+            ) {
+                composable("home") {
+                    HomeScreen(
+                        state = state,
+                        onEquipmentOpen = { id -> navController.navigate("details/$id") },
+                        onBrowse = { openTab("equipment") }
                     )
-                } else {
-                    when (screen) {
-                        "home" -> HomeScreen(
-                            state = state,
-                            onEquipmentOpen = { id -> openDetails(id) },
-                            onBrowse = { screen = "equipment" }
-                        )
-                        "equipment" -> EquipmentScreen(
-                            state = state,
-                            onEquipmentOpen = { id -> openDetails(id) }
-                        )
-                        "details" -> {
-                            val equipment = state.findEquipment(selectedId)
-                            if (equipment == null) {
-                                NotFoundScreen(onBack = { screen = backScreen })
-                            } else {
-                                EquipmentDetailsScreen(
-                                    equipment = equipment,
-                                    categoryName = state.categoryName(equipment.categoryId),
-                                    isBooked = state.isBooked(equipment.id),
-                                    onBook = {
-                                        model.clearMessage()
-                                        screen = "book"
-                                    },
-                                    onBack = { screen = backScreen }
-                                )
-                            }
-                        }
-                        "book" -> {
-                            val equipment = state.findEquipment(selectedId)
-                            if (equipment == null) {
-                                NotFoundScreen(onBack = { screen = "equipment" })
-                            } else {
-                                MakeBookingScreen(
-                                    equipment = equipment,
-                                    categoryName = state.categoryName(equipment.categoryId),
-                                    isBooked = state.isBooked(equipment.id),
-                                    isSaving = state.isSaving,
-                                    message = state.message,
-                                    onSave = { days, purpose -> model.saveBooking(equipment, days, purpose) },
-                                    onBack = { screen = "details" }
-                                )
-                            }
-                        }
-                        "bookings" -> MyBookingsScreen(
-                            state = state,
-                            onCancelBooking = { id -> model.cancelBooking(id) }
-                        )
-                        "add" -> AddEquipmentScreen(
-                            categories = state.categories,
-                            onSave = { name, categoryId, description ->
-                                model.addEquipment(name, categoryId, description)
-                                screen = "equipment"
-                            }
-                        )
-                        "profile" -> ProfileScreen(
-                            state = state,
-                            email = authState.email,
-                            onLogout = {
-                                authModel.logout()
-                                screen = "home"   // next user starts on Home
-                            }
+                }
+                composable("equipment") {
+                    EquipmentScreen(
+                        state = state,
+                        onEquipmentOpen = { id -> navController.navigate("details/$id") }
+                    )
+                }
+                composable(
+                    route = "details/{id}",
+                    arguments = listOf(navArgument("id") { type = NavType.IntType })
+                ) { entry ->
+                    val equipment = state.findEquipment(entry.arguments?.getInt("id"))
+                    if (equipment == null) {
+                        NotFoundScreen(onBack = { navController.popBackStack() })
+                    } else {
+                        EquipmentDetailsScreen(
+                            equipment = equipment,
+                            categoryName = state.categoryName(equipment.categoryId),
+                            isBooked = state.isBooked(equipment.id),
+                            onBook = {
+                                model.clearMessage()
+                                navController.navigate("book/${equipment.id}")
+                            },
+                            onBack = { navController.popBackStack() }
                         )
                     }
+                }
+                composable(
+                    route = "book/{id}",
+                    arguments = listOf(navArgument("id") { type = NavType.IntType })
+                ) { entry ->
+                    val equipment = state.findEquipment(entry.arguments?.getInt("id"))
+                    if (equipment == null) {
+                        NotFoundScreen(onBack = { navController.popBackStack() })
+                    } else {
+                        MakeBookingScreen(
+                            equipment = equipment,
+                            categoryName = state.categoryName(equipment.categoryId),
+                            isBooked = state.isBooked(equipment.id),
+                            isSaving = state.isSaving,
+                            message = state.message,
+                            onSave = { days, purpose -> model.saveBooking(equipment, days, purpose) },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                }
+                composable("bookings") {
+                    MyBookingsScreen(
+                        state = state,
+                        onCancelBooking = { id -> model.cancelBooking(id) }
+                    )
+                }
+                composable("add") {
+                    AddEquipmentScreen(
+                        categories = state.categories,
+                        onSave = { name, categoryId, description ->
+                            model.addEquipment(name, categoryId, description)
+                            openTab("equipment")
+                        }
+                    )
+                }
+                composable("profile") {
+                    ProfileScreen(
+                        state = state,
+                        email = email,
+                        onLogout = onLogout
+                    )
                 }
             }
         }
@@ -188,7 +212,7 @@ fun TusApp() {
 }
 
 @Composable
-fun BottomBar(current: String, onSelect: (String) -> Unit) {
+fun BottomBar(current: String?, onSelect: (String) -> Unit) {
     val tabs = listOf(
         "home" to "Home",
         "equipment" to "Equipment",
