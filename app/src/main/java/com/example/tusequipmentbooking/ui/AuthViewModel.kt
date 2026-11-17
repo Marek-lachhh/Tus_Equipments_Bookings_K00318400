@@ -27,6 +27,7 @@ class AuthViewModel : ViewModel() {
     ))
     val uiState = mutableState.asStateFlow()
     private var generation = 0
+    private var pendingRole = "user"
 
     private fun loadRole(uid: String, ticket: Int) {
         val reference = firestore.collection("users").document(uid)
@@ -40,11 +41,14 @@ class AuthViewModel : ViewModel() {
                     roleReady = true
                 ) }
             } else {
-                reference.set(mapOf("role" to "user"))
+                val newRole = pendingRole
+                pendingRole = "user"
+                reference.set(mapOf("role" to newRole))
                     .addOnCompleteListener { task ->
                         if (ticket == generation && auth.currentUser?.uid == uid) {
                             mutableState.update { it.copy(
-                                isAdmin = false, roleReady = true,
+                                isAdmin = task.isSuccessful && newRole == "admin",
+                                roleReady = true,
                                 error = if (task.isSuccessful) null
                                 else "Signed in, but your user profile could not be saved"
                             ) }
@@ -89,7 +93,7 @@ class AuthViewModel : ViewModel() {
             }
     }
 
-    fun register(email: String, password: String, confirmPassword: String) {
+    fun register(email: String, password: String, confirmPassword: String, asAdmin: Boolean) {
         if (mutableState.value.isBusy) return
         val problem = when {
             email.isBlank() || password.isBlank() || confirmPassword.isBlank() ->
@@ -104,9 +108,11 @@ class AuthViewModel : ViewModel() {
             mutableState.update { it.copy(error = problem) }
             return
         }
+        pendingRole = if (asAdmin) "admin" else "user"
         mutableState.update { it.copy(isBusy = true, error = null) }
         auth.createUserWithEmailAndPassword(email.trim(), password)
             .addOnCompleteListener { task ->
+                if (!task.isSuccessful) pendingRole = "user"
                 mutableState.update { it.copy(
                     isBusy = false,
                     error = if (task.isSuccessful) it.error

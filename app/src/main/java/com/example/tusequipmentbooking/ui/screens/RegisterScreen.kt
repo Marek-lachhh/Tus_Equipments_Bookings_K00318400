@@ -15,12 +15,13 @@ import androidx.compose.ui.unit.dp
 fun RegisterScreen(
     isBusy: Boolean,
     error: String?,
-    onRegister: (String, String, String) -> Unit,
+    onRegister: (String, String, String, Boolean) -> Unit,
     onBackToLogin: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var asAdmin by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())
         .padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Create account", style = MaterialTheme.typography.headlineMedium)
@@ -36,8 +37,16 @@ fun RegisterScreen(
             label = { Text("Confirm password") }, singleLine = true, enabled = !isBusy,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+        Text("Account type", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = !asAdmin, onClick = { asAdmin = false },
+                enabled = !isBusy, label = { Text("User") })
+            FilterChip(selected = asAdmin, onClick = { asAdmin = true },
+                enabled = !isBusy, label = { Text("Admin") })
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(enabled = !isBusy, onClick = { onRegister(email, password, confirmPassword) }) {
+        Button(enabled = !isBusy,
+            onClick = { onRegister(email, password, confirmPassword, asAdmin) }) {
             Text(if (isBusy) "Creating account…" else "Register")
         }
         TextButton(enabled = !isBusy, onClick = onBackToLogin) {
