@@ -16,14 +16,15 @@ fun LoginScreen(
     isBusy: Boolean,
     error: String?,
     onLogin: (String, String) -> Unit,
-    onCancel: () -> Unit
+    onRegister: () -> Unit
 ) {
-    // Do not persist the password in saved state or Room.
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())
         .padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Login", style = MaterialTheme.typography.headlineMedium)
+        Text("TUS Equipment Booking", style = MaterialTheme.typography.headlineMedium)
+        Text("Login", style = MaterialTheme.typography.titleLarge)
+        Text("Login and registration need an internet connection.")
         OutlinedTextField(value = email, onValueChange = { email = it },
             label = { Text("Email") }, singleLine = true, enabled = !isBusy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
@@ -31,11 +32,11 @@ fun LoginScreen(
             label = { Text("Password") }, singleLine = true, enabled = !isBusy,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
-        error?.let { Text(it) }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(enabled = !isBusy && email.isNotBlank() && password.isNotBlank(),
             onClick = { onLogin(email, password) }) {
             Text(if (isBusy) "Signing in…" else "Login")
         }
-        TextButton(enabled = !isBusy, onClick = onCancel) { Text("Cancel") }
+        TextButton(enabled = !isBusy, onClick = onRegister) { Text("No account? Register") }
     }
 }

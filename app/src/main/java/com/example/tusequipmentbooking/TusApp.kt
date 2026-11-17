@@ -40,6 +40,7 @@ import com.example.tusequipmentbooking.ui.screens.MakeBookingScreen
 import com.example.tusequipmentbooking.ui.screens.MyBookingsScreen
 import com.example.tusequipmentbooking.ui.screens.NotFoundScreen
 import com.example.tusequipmentbooking.ui.screens.ProfileScreen
+import com.example.tusequipmentbooking.ui.screens.RegisterScreen
 
 @Composable
 fun TusApp() {
@@ -56,16 +57,32 @@ fun TusApp() {
     var screen by rememberSaveable { mutableStateOf("home") }
     var backScreen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf(0) }
+    var showRegister by rememberSaveable { mutableStateOf(false) }
 
     if (authState.uid == null) {
-        // Nobody signed in: only the Login screen is shown.
+        // Nobody signed in: show Login or Register only.
         Surface(Modifier.fillMaxSize()) {
-            LoginScreen(
-                isBusy = authState.isBusy,
-                error = authState.error,
-                onLogin = authModel::login,
-                onCancel = { }
-            )
+            if (showRegister) {
+                RegisterScreen(
+                    isBusy = authState.isBusy,
+                    error = authState.error,
+                    onRegister = authModel::register,
+                    onBackToLogin = {
+                        authModel.clearError()
+                        showRegister = false
+                    }
+                )
+            } else {
+                LoginScreen(
+                    isBusy = authState.isBusy,
+                    error = authState.error,
+                    onLogin = authModel::login,
+                    onRegister = {
+                        authModel.clearError()
+                        showRegister = true
+                    }
+                )
+            }
         }
     } else {
         fun openDetails(id: Int) {
